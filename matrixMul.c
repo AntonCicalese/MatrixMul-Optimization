@@ -5,8 +5,12 @@
 #define MAX_N 20000
 #define MATRIX_VALUE_RANGE_MAX 10
 
+#define SELECTED_FUNCTION 1
+
 void printMatrix(double *mat, size_t size);
+void matrixMult0(double *mat1, double *mat2, double *outputMat, size_t size);
 void matrixMult1(double *mat1, double *mat2, double *outputMat, size_t size);
+void zeroMatrix(double *mat, size_t size);
 
 int main() {
 	size_t n;
@@ -14,7 +18,7 @@ int main() {
 	double *matA, *matB, *matC;
 	clock_t time;
 	
-	printf("System size_t: %zu\n", sizeof(size_t));
+	//printf("System size_t: %zu\n", sizeof(size_t));
 	
 	srand(42);
 	
@@ -44,6 +48,8 @@ int main() {
 			matB[i * n + j] = rand() % MATRIX_VALUE_RANGE_MAX;
 		}
 	}
+	
+	zeroMatrix(matC, n);
 	/*
 	printf("Matrix A:\n");
 	printMatrix(matA, n);
@@ -51,9 +57,18 @@ int main() {
 	printMatrix(matB, n);
 	*/
 	// Operation
-	time = clock();
-	matrixMult1(matA, matB, matC, n);
-	time = clock() - time;
+	switch(SELECTED_FUNCTION) {
+		case 0:
+			time = clock();
+			matrixMult0(matA, matB, matC, n);
+			time = clock() - time;
+			break;
+		case 1:
+			time = clock();
+			matrixMult1(matA, matB, matC, n);
+			time = clock() - time;
+			break;
+	}
 	
 	printf("Processor time taken:\n");
 	printf("%lf seconds\n", (double)time / CLOCKS_PER_SEC);
@@ -81,7 +96,17 @@ void printMatrix(double *mat, size_t size) {
 	return;
 }
 
-void matrixMult1(double *mat1, double *mat2, double *outputMat, size_t size) {
+void zeroMatrix(double *mat, size_t size) {
+	int i, j;
+	for(i = 0; i < size; i++) {
+		for(j = 0; j < size; j++) {
+			mat[i * size + j] = 0;
+		}
+	}
+	return;
+}
+
+void matrixMult0(double *mat1, double *mat2, double *outputMat, size_t size) {
 	int i, j, k;
 	double partialSum;
 	
@@ -92,6 +117,19 @@ void matrixMult1(double *mat1, double *mat2, double *outputMat, size_t size) {
 				partialSum += mat1[i * size + k] * mat2[k * size + j];
 			}
 			outputMat[i * size + j] = partialSum;
+		}
+	}
+	return;
+}
+
+void matrixMult1(double *mat1, double *mat2, double *outputMat, size_t size) {
+	int i, j, k;
+	
+	for(i = 0; i < size; i++) {
+		for(k = 0; k < size; k++) {
+			for(j = 0; j < size; j++) {
+				outputMat[i * size + j] += mat1[i * size + k] * mat2[k * size + j];
+			}
 		}
 	}
 	return;
