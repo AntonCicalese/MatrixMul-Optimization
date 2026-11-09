@@ -1,0 +1,98 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+#define MAX_N 20000
+#define MATRIX_VALUE_RANGE_MAX 10
+
+void printMatrix(double *mat, size_t size);
+void matrixMult1(double *mat1, double *mat2, double *outputMat, size_t size);
+
+int main() {
+	size_t n;
+	int temp = 1, i, j;
+	double *matA, *matB, *matC;
+	clock_t time;
+	
+	printf("System size_t: %zu\n", sizeof(size_t));
+	
+	srand(42);
+	
+	// Matrix size read
+	
+	do {
+		if (temp <= 0)
+			printf("ERROR: Value must be greater than 0\n");
+		else if(temp > MAX_N)
+			printf("ERROR: Value can't exceed %d\n", MAX_N);
+		printf("Insert matrix size: ");
+		scanf("%d", &temp);
+	} while (temp <= 0 || temp > MAX_N);
+	n = (size_t)temp;
+	
+	printf("Confirmed matrix size: %zu\n", n);
+	
+	// Matrix setup
+	
+	matA = malloc(n*n*sizeof(*matA));
+	matB = malloc(n*n*sizeof(*matB));
+	matC = malloc(n*n*sizeof(*matC));
+	
+	for(i = 0; i < n; i++) {
+		for(j = 0; j < n; j++) {
+			matA[i * n + j] = rand() % MATRIX_VALUE_RANGE_MAX;
+			matB[i * n + j] = rand() % MATRIX_VALUE_RANGE_MAX;
+		}
+	}
+	/*
+	printf("Matrix A:\n");
+	printMatrix(matA, n);
+	printf("Matrix B:\n");
+	printMatrix(matB, n);
+	*/
+	// Operation
+	time = clock();
+	matrixMult1(matA, matB, matC, n);
+	time = clock() - time;
+	
+	printf("Processor time taken:\n");
+	printf("%lf seconds\n", (double)time / CLOCKS_PER_SEC);
+	
+	// Output 
+	/*
+	printf("Output Matrix:\n");
+	printMatrix(matC, n);
+	*/
+	free(matA);
+	free(matB);
+	free(matC);
+	return 0;
+}
+
+void printMatrix(double *mat, size_t size) {
+	int i, j;
+	
+	for(i = 0; i < size; i++) {
+		for(j = 0; j < size; j++) {
+			printf("%2.0lf ", mat[i * size + j]);
+		}
+		printf("\n");
+	}	
+	return;
+}
+
+void matrixMult1(double *mat1, double *mat2, double *outputMat, size_t size) {
+	int i, j, k;
+	double partialSum;
+	
+	for(i = 0; i < size; i++) {
+		for(j = 0; j < size; j++) {
+			partialSum = 0;
+			for(k = 0; k < size; k++) {
+				partialSum += mat1[i * size + k] * mat2[k * size + j];
+			}
+			outputMat[i * size + j] = partialSum;
+		}
+	}
+	return;
+}
