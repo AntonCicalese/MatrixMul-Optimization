@@ -1,22 +1,25 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <omp.h>
 
 #define MAX_N 20000
 #define MATRIX_VALUE_RANGE_MAX 10
 
-#define SELECTED_FUNCTION 1
+#define SELECTED_FUNCTION 2
+#define NUM_THREADS 8
 
 void printMatrix(double *mat, size_t size);
 void matrixMult0(double *mat1, double *mat2, double *outputMat, size_t size);
 void matrixMult1(double *mat1, double *mat2, double *outputMat, size_t size);
+void matrixMult2(double *mat1, double *mat2, double *outputMat, size_t size);
 void zeroMatrix(double *mat, size_t size);
 
 int main() {
 	size_t n;
 	int temp = 1, i, j;
 	double *matA, *matB, *matC;
-	clock_t time;
+	double elapsedTime;
 	
 	//printf("System size_t: %zu\n", sizeof(size_t));
 	
@@ -58,20 +61,26 @@ int main() {
 	*/
 	// Operation
 	switch(SELECTED_FUNCTION) {
-		case 0:
-			time = clock();
+		case 0: // ijk solution
+			elapsedTime = clock();
 			matrixMult0(matA, matB, matC, n);
-			time = clock() - time;
+			elapsedTime = (clock() - elapsedTime)  / CLOCKS_PER_SEC;
 			break;
-		case 1:
-			time = clock();
+		case 1: // ikj solution
+			elapsedTime = clock();
 			matrixMult1(matA, matB, matC, n);
-			time = clock() - time;
+			elapsedTime = (clock() - elapsedTime)  / CLOCKS_PER_SEC;
+			break;
+		case 2: // Parallel ikj solution
+			omp_set_num_threads(NUM_THREADS);
+			elapsedTime = omp_get_wtime();
+			matrixMult2(matA, matB, matC, n);
+			elapsedTime = omp_get_wtime() - elapsedTime;
 			break;
 	}
 	
 	printf("Processor time taken:\n");
-	printf("%lf seconds\n", (double)time / CLOCKS_PER_SEC);
+	printf("%lf seconds\n", elapsedTime);
 	
 	// Output 
 	/*
@@ -85,7 +94,7 @@ int main() {
 }
 
 void printMatrix(double *mat, size_t size) {
-	int i, j;
+	size_t i, j;
 	
 	for(i = 0; i < size; i++) {
 		for(j = 0; j < size; j++) {
@@ -97,7 +106,7 @@ void printMatrix(double *mat, size_t size) {
 }
 
 void zeroMatrix(double *mat, size_t size) {
-	int i, j;
+	size_t i, j;
 	for(i = 0; i < size; i++) {
 		for(j = 0; j < size; j++) {
 			mat[i * size + j] = 0;
@@ -107,7 +116,7 @@ void zeroMatrix(double *mat, size_t size) {
 }
 
 void matrixMult0(double *mat1, double *mat2, double *outputMat, size_t size) {
-	int i, j, k;
+	size_t i, j, k;
 	double partialSum;
 	
 	for(i = 0; i < size; i++) {
@@ -123,11 +132,25 @@ void matrixMult0(double *mat1, double *mat2, double *outputMat, size_t size) {
 }
 
 void matrixMult1(double *mat1, double *mat2, double *outputMat, size_t size) {
-	int i, j, k;
+	size_t i, k, j;
 	
 	for(i = 0; i < size; i++) {
 		for(k = 0; k < size; k++) {
 			for(j = 0; j < size; j++) {
+				outputMat[i * size + j] += mat1[i * size + k] * mat2[k * size + j];
+			}
+		}
+	}
+	return;
+}
+
+void matrixMult2(double *mat1, double *mat2, double *outputMat, size_t size) {
+	size_t i;
+	
+	#pragma omp parallel for
+	for(i = 0; i < size; i++) {
+		for(size_t k = 0; k < size; k++) {
+			for(size_t j = 0; j < size; j++) {
 				outputMat[i * size + j] += mat1[i * size + k] * mat2[k * size + j];
 			}
 		}
