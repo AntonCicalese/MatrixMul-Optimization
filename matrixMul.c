@@ -6,9 +6,9 @@
 #define MAX_N 20000
 #define MATRIX_VALUE_RANGE_MAX 10
 
-#define SELECTED_FUNCTION 2
-#define NUM_THREADS 8
+#define NUM_OF_AVAILABLE_FUNCTIONS 3
 
+void showConfirmedValues(size_t n, int selectedFunction);
 void printMatrix(double *mat, size_t size);
 void matrixMult0(double *mat1, double *mat2, double *outputMat, size_t size);
 void matrixMult1(double *mat1, double *mat2, double *outputMat, size_t size);
@@ -17,9 +17,9 @@ void zeroMatrix(double *mat, size_t size);
 
 int main() {
 	size_t n;
-	int temp = 1, i, j;
+	int temp = 1, i, j, readReturn, selectedFunction, threadsNum;
 	double *matA, *matB, *matC;
-	double elapsedTime;
+	double elapsedTime = 0;
 	
 	//printf("System size_t: %zu\n", sizeof(size_t));
 	
@@ -33,11 +33,9 @@ int main() {
 		else if(temp > MAX_N)
 			printf("ERROR: Value can't exceed %d\n", MAX_N);
 		printf("Insert matrix size: ");
-		scanf("%d", &temp);
-	} while (temp <= 0 || temp > MAX_N);
+		readReturn = scanf("%d", &temp);
+	} while (readReturn != 1 || temp <= 0 || temp > MAX_N);
 	n = (size_t)temp;
-	
-	printf("Confirmed matrix size: %zu\n", n);
 	
 	// Matrix setup
 	
@@ -59,20 +57,40 @@ int main() {
 	printf("Matrix B:\n");
 	printMatrix(matB, n);
 	*/
+	
+	// Function Select
+	printf("Available Functions:\n");
+	printf("0 - IJK Solution\n");
+	printf("1 - IKJ Solution\n");
+	printf("2 - Parallel IKJ Solution\n");
+	printf("Select a Valid Function: \n");
+	do {
+		readReturn = scanf("%d", &selectedFunction);
+	} while(selectedFunction < 1 || selectedFunction > NUM_OF_AVAILABLE_FUNCTIONS);
+	
+	
+	
 	// Operation
-	switch(SELECTED_FUNCTION) {
+	
+	switch(selectedFunction) {
 		case 0: // ijk solution
+			showConfirmedValues(n, selectedFunction);
 			elapsedTime = clock();
 			matrixMult0(matA, matB, matC, n);
 			elapsedTime = (clock() - elapsedTime)  / CLOCKS_PER_SEC;
 			break;
 		case 1: // ikj solution
+			showConfirmedValues(n, selectedFunction);
 			elapsedTime = clock();
 			matrixMult1(matA, matB, matC, n);
 			elapsedTime = (clock() - elapsedTime)  / CLOCKS_PER_SEC;
 			break;
 		case 2: // Parallel ikj solution
-			omp_set_num_threads(NUM_THREADS);
+			printf("Threads to use: \n");
+			readReturn = scanf("%d", &threadsNum);
+			showConfirmedValues(n, selectedFunction);
+			printf("Confirmed Thread Count: %d\n", threadsNum);
+			omp_set_num_threads(threadsNum);
 			elapsedTime = omp_get_wtime();
 			matrixMult2(matA, matB, matC, n);
 			elapsedTime = omp_get_wtime() - elapsedTime;
@@ -91,6 +109,12 @@ int main() {
 	free(matB);
 	free(matC);
 	return 0;
+}
+
+void showConfirmedValues(size_t n, int selectedFunction) {
+	printf("Confirmed matrix size: %zu\n", n);
+	printf("Selected Function: %d\n", selectedFunction);
+	return;
 }
 
 void printMatrix(double *mat, size_t size) {
