@@ -4,6 +4,12 @@
 #include <time.h>
 #include <omp.h>
 
+#define RESET   "\033[0m"
+#define BOLD    "\033[1m"
+#define DIM     "\033[2m"
+#define RED     "\033[31m"
+#define CYAN    "\033[36m"
+
 #define MAX_N 20000
 #define MATRIX_VALUE_RANGE_MAX 10
 
@@ -11,6 +17,7 @@
 #define DEFAULT_FUNCTION_IDX 1
 #define DEFAULT_THREADS_NUM 1
 #define DEFAULT_VERBOSE_FLAG 0
+#define DEFAULT_HELP_SELECTED_FLAG 0
 
 #define NUM_OF_AVAILABLE_FUNCTIONS 3
 
@@ -19,27 +26,27 @@ typedef struct {
 	int functionIdx;
 	int threadsNum;
 	int verbose;
+	int helpSelected;
 } Settings;
 
+void run(Settings cfg, double *matA, double *matB, double *matC);
 void printMatrix(double *mat, size_t size);
 void printSettings(Settings cfg);
+void printHelp();
 void matrixMult0(double *mat1, double *mat2, double *outputMat, size_t size);
 void matrixMult1(double *mat1, double *mat2, double *outputMat, size_t size);
 void matrixMult2(double *mat1, double *mat2, double *outputMat, size_t size);
+void randomFillMatrix(double *mat, size_t size);
 void zeroMatrix(double *mat, size_t size);
 
 /*TO DO
-- Fix verbose setting with print on every major step
-- Add --help command for info on how to use the program
-- Fix output on non-verbose for use by execution scripts
-- Modularize code for: Matrix random values filling, Code execution timing
+
 */
 
 int main(int argc, char **argv) {
 	Settings cfg;
-	int i, j;
+	int i;
 	double *matA, *matB, *matC;
-	double elapsedTime = 0;
 	
 	srand(42);
 	
@@ -49,6 +56,7 @@ int main(int argc, char **argv) {
 	cfg.functionIdx = DEFAULT_FUNCTION_IDX;
 	cfg.threadsNum = DEFAULT_THREADS_NUM;
 	cfg.verbose = DEFAULT_VERBOSE_FLAG;
+	cfg.helpSelected = DEFAULT_HELP_SELECTED_FLAG;
 	
 	// Program arguments read
 	
@@ -61,42 +69,40 @@ int main(int argc, char **argv) {
 			cfg.threadsNum = atoi(argv[++i]);
 		} else if (strcmp(argv[i], "-v") == 0) {
 			cfg.verbose = 1;
+		} else if (strcmp(argv[i], "--help") == 0) {
+			cfg.helpSelected = 1;
+			printHelp();
 		}
 	}
+	
+	if(!cfg.helpSelected) {
+		matA = malloc(cfg.matSize*cfg.matSize*sizeof(*matA));
+		matB = malloc(cfg.matSize*cfg.matSize*sizeof(*matB));
+		matC = malloc(cfg.matSize*cfg.matSize*sizeof(*matC));
+		run(cfg, matA, matB, matC);
+	}
+	
+	return 0;
+}
+
+void run(Settings cfg, double *matA, double *matB, double *matC) {
+	double elapsedTime = 0;
 	
 	if (cfg.verbose) printSettings(cfg);
 	
 	// Matrix setup
 	
-	matA = malloc(cfg.matSize*cfg.matSize*sizeof(*matA));
-	matB = malloc(cfg.matSize*cfg.matSize*sizeof(*matB));
-	matC = malloc(cfg.matSize*cfg.matSize*sizeof(*matC));
+	if (cfg.verbose) printf("Setting up matrices of size %zu ...\n", cfg.matSize);
 	
-	for(i = 0; i < cfg.matSize; i++) {
-		for(j = 0; j < cfg.matSize; j++) {
-			matA[i * cfg.matSize + j] = rand() % MATRIX_VALUE_RANGE_MAX;
-			matB[i * cfg.matSize + j] = rand() % MATRIX_VALUE_RANGE_MAX;
-		}
-	}
+	randomFillMatrix(matA, cfg.matSize);
+	randomFillMatrix(matB, cfg.matSize);
 	
 	zeroMatrix(matC, cfg.matSize);
-	/*
-	printf("Matrix A:\n");
-	printMatrix(matA, n);
-	printf("Matrix B:\n");
-	printMatrix(matB, n);
-	*/
 	
-	// Function Select
-	/*printf("Available Functions:\n");
-	printf("0 - IJK Solution\n");
-	printf("1 - IKJ Solution\n");
-	printf("2 - Parallel IKJ Solution\n");
-	printf("Select a Valid Function: \n");
-	*/
+	if (cfg.verbose) printf("Matrices set up!\n");
 	
 	// Operation
-	
+	if (cfg.verbose) printf("Executing function: %d ...\n", cfg.functionIdx);
 	switch(cfg.functionIdx) {
 		case 0: // ijk solution
 			elapsedTime = clock();
@@ -116,51 +122,14 @@ int main(int argc, char **argv) {
 			break;
 	}
 	
-	printf("Processor time taken: ");
-	printf("%lf seconds\n", elapsedTime);
+	if (cfg.verbose) printf("Execution complete!\n" CYAN "Processor time taken: ");
+
+	if (cfg.verbose) printf("%lf seconds\n" RESET, elapsedTime);
+	else printf("%lf\n", elapsedTime);
 	
-	// Output 
-	/*
-	printf("Output Matrix:\n");
-	printMatrix(matC, n);
-	*/
 	free(matA);
 	free(matB);
 	free(matC);
-	return 0;
-}
-
-void printSettings(Settings cfg) {
-	printf("----------------------\n");
-	printf("Execution settings: \n");
-	printf("Matrix Size: %zu\n", cfg.matSize);
-	printf("Function Index: %d\n", cfg.functionIdx);
-	printf("Threads Num: %d\n", cfg.threadsNum);
-	printf("Verbose: %d\n", cfg.verbose);
-	printf("----------------------\n");
-	return;
-}
-
-void printMatrix(double *mat, size_t size) {
-	size_t i, j;
-	
-	for(i = 0; i < size; i++) {
-		for(j = 0; j < size; j++) {
-			printf("%2.0lf ", mat[i * size + j]);
-		}
-		printf("\n");
-	}	
-	return;
-}
-
-void zeroMatrix(double *mat, size_t size) {
-	size_t i, j;
-	for(i = 0; i < size; i++) {
-		for(j = 0; j < size; j++) {
-			mat[i * size + j] = 0;
-		}
-	}
-	return;
 }
 
 void matrixMult0(double *mat1, double *mat2, double *outputMat, size_t size) {
@@ -205,3 +174,68 @@ void matrixMult2(double *mat1, double *mat2, double *outputMat, size_t size) {
 	}
 	return;
 }
+
+void printMatrix(double *mat, size_t size) {
+	size_t i, j;
+	
+	for(i = 0; i < size; i++) {
+		for(j = 0; j < size; j++) {
+			printf("%2.0lf ", mat[i * size + j]);
+		}
+		printf("\n");
+	}	
+	return;
+}
+
+void zeroMatrix(double *mat, size_t size) {
+	size_t i, j;
+	for(i = 0; i < size; i++) {
+		for(j = 0; j < size; j++) {
+			mat[i * size + j] = 0;
+		}
+	}
+	return;
+}
+
+void randomFillMatrix(double *mat, size_t size) {
+	size_t i, j;
+	for(i = 0; i < size; i++) {
+		for(j = 0; j < size; j++) {
+			mat[i * size + j] = rand() % MATRIX_VALUE_RANGE_MAX;
+		}
+	}
+	return;
+}
+
+void printSettings(Settings cfg) {
+	printf("----------------------\n");
+	printf("Execution settings: \n");
+	printf("Matrix Size: %zu\n", cfg.matSize);
+	printf("Function Index: %d\n", cfg.functionIdx);
+	printf("Threads Num: %d\n", cfg.threadsNum);
+	printf("Verbose: %d\n", cfg.verbose);
+	printf("----------------------\n");
+	return;
+}
+
+void printHelp() {
+	printf(CYAN" __  __       _   __  __       _  ___        _\n");
+	printf("|  \\/  | __ _| |_|  \\/  |_   _| |/ _ \\ _ __ | |_\n");
+	printf("| |\\/| |/ _` | __| |\\/| | | | | | | | | '_ \\| __|\n");
+	printf("| |  | | (_| | |_| |  | | |_| | | |_| | |_) | |_\n");
+	printf("|_|  |_|\\__,_|\\__|_|  |_|\\__,_|_|\\___/| .__/ \\__|\n");
+	printf("                                      |_|\n");
+	printf(RED "╔═══════════════" CYAN BOLD" PROGRAM OPTIONS " RESET RED "═══════════════╗\n");
+	printf("║  " CYAN "-n [int]" RED " | Set Matrix Size                   ║\n");
+	printf("║  " CYAN "-f [int]" RED " | Select Function Index             ║\n");
+	printf("║  " CYAN "-t [int]" RED " | Set Thread Amount                 ║\n");
+	printf("║  " CYAN "-v      " RED " | Verbose Execution                 ║\n");
+	printf("╚═══════════════════════════════════════════════╝\n");
+	printf("╔════════════" CYAN BOLD " AVAILABLE FUNCTIONS " RESET RED "══════════════╗\n");
+	printf("║  " CYAN "0" RED " | IJK Solution                             ║\n");
+	printf("║  " CYAN "1" RED " | IKJ Solution                             ║\n");
+	printf("║  " CYAN "2" RED " | Parallel IKJ Solution                    ║\n");
+	printf("╚═══════════════════════════════════════════════╝\n" RESET);
+	return;
+}
+
