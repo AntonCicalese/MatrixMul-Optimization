@@ -6,7 +6,6 @@
 
 #define RESET   "\033[0m"
 #define BOLD    "\033[1m"
-#define DIM     "\033[2m"
 #define RED     "\033[31m"
 #define CYAN    "\033[36m"
 
