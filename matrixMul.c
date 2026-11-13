@@ -15,26 +15,30 @@
 #define DEFAULT_MATRIX_SIZE 1000
 #define DEFAULT_FUNCTION_IDX 1
 #define DEFAULT_THREADS_NUM 1
+#define DEFAULT_BLOCK_SIZE 40
 #define DEFAULT_VERBOSE_FLAG 0
 #define DEFAULT_HELP_SELECTED_FLAG 0
-
-#define NUM_OF_AVAILABLE_FUNCTIONS 3
 
 typedef struct {
 	size_t matSize;
 	int functionIdx;
 	int threadsNum;
+	size_t blockSize;
+	int parallel;
 	int verbose;
 	int helpSelected;
 } Settings;
 
 void run(Settings cfg, double *matA, double *matB, double *matC);
+void matrixMult0(double *mat1, double *mat2, double *outputMat, size_t size);
+void matrixMult0parallel(double *mat1, double *mat2, double *outputMat, size_t size);
+void matrixMult1(double *mat1, double *mat2, double *outputMat, size_t size);
+void matrixMult1parallel(double *mat1, double *mat2, double *outputMat, size_t size);
+void matrixMult2(double *mat1, double *mat2, double *outputMat, size_t size, size_t blockSize);
+void matrixMult2parallel(double *mat1, double *mat2, double *outputMat, size_t size, size_t blockSize);
 void printMatrix(double *mat, size_t size);
 void printSettings(Settings cfg);
 void printHelp();
-void matrixMult0(double *mat1, double *mat2, double *outputMat, size_t size);
-void matrixMult1(double *mat1, double *mat2, double *outputMat, size_t size);
-void matrixMult2(double *mat1, double *mat2, double *outputMat, size_t size);
 void randomFillMatrix(double *mat, size_t size);
 void zeroMatrix(double *mat, size_t size);
 
@@ -54,6 +58,7 @@ int main(int argc, char **argv) {
 	cfg.matSize = DEFAULT_MATRIX_SIZE;
 	cfg.functionIdx = DEFAULT_FUNCTION_IDX;
 	cfg.threadsNum = DEFAULT_THREADS_NUM;
+	cfg.blockSize = DEFAULT_BLOCK_SIZE;
 	cfg.verbose = DEFAULT_VERBOSE_FLAG;
 	cfg.helpSelected = DEFAULT_HELP_SELECTED_FLAG;
 	
@@ -66,8 +71,12 @@ int main(int argc, char **argv) {
 			cfg.functionIdx = atoi(argv[++i]);
 		} else if (strcmp(argv[i], "-t") == 0) {
 			cfg.threadsNum = atoi(argv[++i]);
+		} else if (strcmp(argv[i], "-b") == 0) {
+			cfg.blockSize = atoi(argv[++i]);
 		} else if (strcmp(argv[i], "-v") == 0) {
 			cfg.verbose = 1;
+		} else if (strcmp(argv[i], "-p") == 0) {
+			cfg.parallel = 1;
 		} else if (strcmp(argv[i], "--help") == 0) {
 			cfg.helpSelected = 1;
 			printHelp();
@@ -104,19 +113,30 @@ void run(Settings cfg, double *matA, double *matB, double *matC) {
 	if (cfg.verbose) printf("Executing function: %d ...\n", cfg.functionIdx);
 	switch(cfg.functionIdx) {
 		case 0: // ijk solution
-			elapsedTime = clock();
-			matrixMult0(matA, matB, matC, cfg.matSize);
-			elapsedTime = (clock() - elapsedTime)  / CLOCKS_PER_SEC;
-			break;
-		case 1: // ikj solution
-			elapsedTime = clock();
-			matrixMult1(matA, matB, matC, cfg.matSize);
-			elapsedTime = (clock() - elapsedTime)  / CLOCKS_PER_SEC;
-			break;
-		case 2: // Parallel ikj solution
 			omp_set_num_threads(cfg.threadsNum);
 			elapsedTime = omp_get_wtime();
-			matrixMult2(matA, matB, matC, cfg.matSize);
+			if (cfg.parallel)
+				matrixMult0parallel(matA, matB, matC, cfg.matSize);
+			else
+				matrixMult0(matA, matB, matC, cfg.matSize);
+			elapsedTime = omp_get_wtime() - elapsedTime;
+			break;
+		case 1: // ikj solution
+			omp_set_num_threads(cfg.threadsNum);
+			elapsedTime = omp_get_wtime();
+			if (cfg.parallel)
+				matrixMult1parallel(matA, matB, matC, cfg.matSize);
+			else
+				matrixMult1(matA, matB, matC, cfg.matSize);
+			elapsedTime = omp_get_wtime() - elapsedTime;
+			break;
+		case 2: // Blocked ikj solution
+			omp_set_num_threads(cfg.threadsNum);
+			elapsedTime = omp_get_wtime();
+			if (cfg.parallel)
+				matrixMult2parallel(matA, matB, matC, cfg.matSize, cfg.blockSize);
+			else
+				matrixMult2(matA, matB, matC, cfg.matSize, cfg.blockSize);
 			elapsedTime = omp_get_wtime() - elapsedTime;
 			break;
 	}
@@ -147,6 +167,23 @@ void matrixMult0(double *mat1, double *mat2, double *outputMat, size_t size) {
 	return;
 }
 
+void matrixMult0parallel(double *mat1, double *mat2, double *outputMat, size_t size) {
+	size_t i, j, k;
+	double partialSum;
+	
+	#pragma omp parallel for collapse(2) private(k, partialSum)
+	for(i = 0; i < size; i++) {
+		for(j = 0; j < size; j++) {
+			partialSum = 0;
+			for(k = 0; k < size; k++) {
+				partialSum += mat1[i * size + k] * mat2[k * size + j];
+			}
+			outputMat[i * size + j] = partialSum;
+		}
+	}
+	return;
+}
+
 void matrixMult1(double *mat1, double *mat2, double *outputMat, size_t size) {
 	size_t i, k, j;
 	
@@ -160,19 +197,68 @@ void matrixMult1(double *mat1, double *mat2, double *outputMat, size_t size) {
 	return;
 }
 
-void matrixMult2(double *mat1, double *mat2, double *outputMat, size_t size) {
-	size_t i;
+void matrixMult1parallel(double *mat1, double *mat2, double *outputMat, size_t size) {
+	size_t i, k, j;
 	
-	#pragma omp parallel for
+	#pragma omp parallel for private(k, j)
 	for(i = 0; i < size; i++) {
-		for(size_t k = 0; k < size; k++) {
-			for(size_t j = 0; j < size; j++) {
+		for(k = 0; k < size; k++) {
+			for(j = 0; j < size; j++) {
 				outputMat[i * size + j] += mat1[i * size + k] * mat2[k * size + j];
 			}
 		}
 	}
 	return;
 }
+
+void matrixMult2(double *mat1, double *mat2, double *outputMat, size_t size, size_t blockSize) {
+	size_t ii, kk, jj, i, k ,j, iMax, kMax, jMax;
+	
+	for(ii = 0; ii < size; ii += blockSize) {
+		if(ii + blockSize < size) iMax = ii + blockSize; else iMax = size;
+		for(kk = 0; kk < size; kk += blockSize) {
+			if(kk + blockSize < size) kMax = kk + blockSize; else kMax = size;
+			for(jj = 0; jj < size; jj += blockSize) {
+				if(jj + blockSize < size) jMax = jj + blockSize; else jMax = size;
+				
+				for(i = ii; i < iMax; i++) {
+					for(k = kk; k < kMax; k++) {
+						for(j = jj; j < jMax; j++) {
+							outputMat[i * size + j] += mat1[i * size + k] * mat2[k * size + j];
+						}
+					}						
+				}
+				
+			}				
+		}	
+	}
+	return;
+}
+
+void matrixMult2parallel(double *mat1, double *mat2, double *outputMat, size_t size, size_t blockSize) {
+	size_t ii, kk, jj, i, k ,j, iMax, kMax, jMax;
+	
+	for(ii = 0; ii < size; ii += blockSize) {
+		if(ii + blockSize < size) iMax = ii + blockSize; else iMax = size;
+		for(kk = 0; kk < size; kk += blockSize) {
+			if(kk + blockSize < size) kMax = kk + blockSize; else kMax = size;
+			for(jj = 0; jj < size; jj += blockSize) {
+				if(jj + blockSize < size) jMax = jj + blockSize; else jMax = size;
+				
+				for(i = ii; i < iMax; i++) {
+					for(k = kk; k < kMax; k++) {
+						for(j = jj; j < jMax; j++) {
+							outputMat[i * size + j] += mat1[i * size + k] * mat2[k * size + j];
+						}
+					}						
+				}
+				
+			}				
+		}	
+	}
+	return;
+}
+
 
 void printMatrix(double *mat, size_t size) {
 	size_t i, j;
@@ -212,6 +298,8 @@ void printSettings(Settings cfg) {
 	printf("Matrix Size: %zu\n", cfg.matSize);
 	printf("Function Index: %d\n", cfg.functionIdx);
 	printf("Threads Num: %d\n", cfg.threadsNum);
+	printf("Block Size: %zu\n", cfg.blockSize);
+	printf("Parallel: %d\n", cfg.parallel);
 	printf("Verbose: %d\n", cfg.verbose);
 	printf("----------------------\n");
 	return;
@@ -228,13 +316,14 @@ void printHelp() {
 	printf("║  " CYAN "-n [int]" RED " | Set Matrix Size                   ║\n");
 	printf("║  " CYAN "-f [int]" RED " | Select Function Index             ║\n");
 	printf("║  " CYAN "-t [int]" RED " | Set Thread Amount                 ║\n");
+	printf("║  " CYAN "-b [int]" RED " | Set Block Size                    ║\n");
+	printf("║  " CYAN "-p      " RED " | Parallel Execution                ║\n");
 	printf("║  " CYAN "-v      " RED " | Verbose Execution                 ║\n");
 	printf("╚═══════════════════════════════════════════════╝\n");
 	printf("╔════════════" CYAN BOLD " AVAILABLE FUNCTIONS " RESET RED "══════════════╗\n");
 	printf("║  " CYAN "0" RED " | IJK Solution                             ║\n");
 	printf("║  " CYAN "1" RED " | IKJ Solution                             ║\n");
-	printf("║  " CYAN "2" RED " | Parallel IKJ Solution                    ║\n");
+	printf("║  " CYAN "2" RED " | Blocked IKJ Solution                     ║\n");
 	printf("╚═══════════════════════════════════════════════╝\n" RESET);
 	return;
 }
-
