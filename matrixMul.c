@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include <omp.h>
 
 #define RESET   "\033[0m"
@@ -9,13 +8,13 @@
 #define RED     "\033[31m"
 #define CYAN    "\033[36m"
 
-#define MAX_N 20000
 #define MATRIX_VALUE_RANGE_MAX 10
 
 #define DEFAULT_MATRIX_SIZE 1000
 #define DEFAULT_FUNCTION_IDX 1
 #define DEFAULT_THREADS_NUM 1
 #define DEFAULT_BLOCK_SIZE 40
+#define DEFAULT_PARALLEL_FLAG 0
 #define DEFAULT_VERBOSE_FLAG 0
 #define DEFAULT_HELP_SELECTED_FLAG 0
 
@@ -36,6 +35,8 @@ void matrixMult1(double *mat1, double *mat2, double *outputMat, size_t size);
 void matrixMult1parallel(double *mat1, double *mat2, double *outputMat, size_t size);
 void matrixMult2(double *mat1, double *mat2, double *outputMat, size_t size, size_t blockSize);
 void matrixMult2parallel(double *mat1, double *mat2, double *outputMat, size_t size, size_t blockSize);
+void matrixMult3(double *mat1, double *mat2, double *outputMat, size_t size, size_t blockSize);
+void matrixMult3parallel(double *mat1, double *mat2, double *outputMat, size_t size, size_t blockSize);
 void printMatrix(double *mat, size_t size);
 void printSettings(Settings cfg);
 void printHelp();
@@ -59,6 +60,7 @@ int main(int argc, char **argv) {
 	cfg.functionIdx = DEFAULT_FUNCTION_IDX;
 	cfg.threadsNum = DEFAULT_THREADS_NUM;
 	cfg.blockSize = DEFAULT_BLOCK_SIZE;
+	cfg.parallel = DEFAULT_PARALLEL_FLAG;
 	cfg.verbose = DEFAULT_VERBOSE_FLAG;
 	cfg.helpSelected = DEFAULT_HELP_SELECTED_FLAG;
 	
@@ -87,13 +89,17 @@ int main(int argc, char **argv) {
 		matA = malloc(cfg.matSize*cfg.matSize*sizeof(*matA));
 		matB = malloc(cfg.matSize*cfg.matSize*sizeof(*matB));
 		matC = malloc(cfg.matSize*cfg.matSize*sizeof(*matC));
-		run(cfg, matA, matB, matC);
+		if (matA != NULL && matB != NULL && matC != NULL)
+			run(cfg, matA, matB, matC);
+		else
+			printf(RED "Memory Allocation Error! MatSize: %zu\n" RESET, cfg.matSize);
 	}
 	
 	return 0;
 }
 
 void run(Settings cfg, double *matA, double *matB, double *matC) {
+	int errorDetected = 0;
 	double elapsedTime = 0;
 	
 	if (cfg.verbose) printSettings(cfg);
@@ -130,7 +136,7 @@ void run(Settings cfg, double *matA, double *matB, double *matC) {
 				matrixMult1(matA, matB, matC, cfg.matSize);
 			elapsedTime = omp_get_wtime() - elapsedTime;
 			break;
-		case 2: // Blocked ikj solution
+		case 2: // Blocked iikkjj-ikj solution
 			omp_set_num_threads(cfg.threadsNum);
 			elapsedTime = omp_get_wtime();
 			if (cfg.parallel)
@@ -139,12 +145,26 @@ void run(Settings cfg, double *matA, double *matB, double *matC) {
 				matrixMult2(matA, matB, matC, cfg.matSize, cfg.blockSize);
 			elapsedTime = omp_get_wtime() - elapsedTime;
 			break;
+		case 3: // Blocked iijjkk-ikj solution
+			omp_set_num_threads(cfg.threadsNum);
+			elapsedTime = omp_get_wtime();
+			if (cfg.parallel)
+				matrixMult3parallel(matA, matB, matC, cfg.matSize, cfg.blockSize);
+			else
+				matrixMult3(matA, matB, matC, cfg.matSize, cfg.blockSize);
+			elapsedTime = omp_get_wtime() - elapsedTime;
+			break;
+		default:
+			errorDetected = 1;
+			printf(RED "Function %d not available!\n" RESET, cfg.functionIdx);
 	}
 	
-	if (cfg.verbose) printf("Execution complete!\n" CYAN "Processor time taken: ");
+	if (!errorDetected) {
+		if (cfg.verbose) printf("Execution complete!\n" CYAN "Time taken: ");
 
-	if (cfg.verbose) printf("%lf seconds\n" RESET, elapsedTime);
-	else printf("%lf\n", elapsedTime);
+		if (cfg.verbose) printf("%lf seconds\n" RESET, elapsedTime);
+		else printf("%lf\n", elapsedTime);
+	}
 	
 	free(matA);
 	free(matB);
@@ -238,12 +258,62 @@ void matrixMult2(double *mat1, double *mat2, double *outputMat, size_t size, siz
 void matrixMult2parallel(double *mat1, double *mat2, double *outputMat, size_t size, size_t blockSize) {
 	size_t ii, kk, jj, i, k ,j, iMax, kMax, jMax;
 	
+	#pragma omp parallel for private(kk, jj, i, k, j, iMax, kMax, jMax)
 	for(ii = 0; ii < size; ii += blockSize) {
 		if(ii + blockSize < size) iMax = ii + blockSize; else iMax = size;
 		for(kk = 0; kk < size; kk += blockSize) {
 			if(kk + blockSize < size) kMax = kk + blockSize; else kMax = size;
 			for(jj = 0; jj < size; jj += blockSize) {
 				if(jj + blockSize < size) jMax = jj + blockSize; else jMax = size;
+				
+				for(i = ii; i < iMax; i++) {
+					for(k = kk; k < kMax; k++) {
+						for(j = jj; j < jMax; j++) {
+							outputMat[i * size + j] += mat1[i * size + k] * mat2[k * size + j];
+						}
+					}						
+				}
+				
+			}				
+		}	
+	}
+	return;
+}
+
+void matrixMult3(double *mat1, double *mat2, double *outputMat, size_t size, size_t blockSize) {
+	size_t ii, jj, kk, i, k ,j, iMax, kMax, jMax;
+	
+	for(ii = 0; ii < size; ii += blockSize) {
+		if(ii + blockSize < size) iMax = ii + blockSize; else iMax = size;
+		for(jj = 0; jj < size; jj += blockSize) {
+			if(jj + blockSize < size) jMax = jj + blockSize; else jMax = size;
+			for(kk = 0; kk < size; kk += blockSize) {
+				if(kk + blockSize < size) kMax = kk + blockSize; else kMax = size;
+				
+				for(i = ii; i < iMax; i++) {
+					for(k = kk; k < kMax; k++) {
+						for(j = jj; j < jMax; j++) {
+							outputMat[i * size + j] += mat1[i * size + k] * mat2[k * size + j];
+						}
+					}						
+				}
+				
+			}				
+		}	
+	}
+	return;
+}
+
+void matrixMult3parallel(double *mat1, double *mat2, double *outputMat, size_t size, size_t blockSize) {
+	size_t ii, jj, kk, i, k ,j, iMax, kMax, jMax;
+	
+	#pragma omp parallel for collapse(2) private(kk, i, k, j, iMax, kMax, jMax)
+	for(ii = 0; ii < size; ii += blockSize) {
+		for(jj = 0; jj < size; jj += blockSize) {
+			if(ii + blockSize < size) iMax = ii + blockSize; else iMax = size;
+			if(jj + blockSize < size) jMax = jj + blockSize; else jMax = size;
+			for(kk = 0; kk < size; kk += blockSize) {
+				if(kk + blockSize < size) kMax = kk + blockSize; else kMax = size;
 				
 				for(i = ii; i < iMax; i++) {
 					for(k = kk; k < kMax; k++) {
@@ -323,7 +393,8 @@ void printHelp() {
 	printf("╔════════════" CYAN BOLD " AVAILABLE FUNCTIONS " RESET RED "══════════════╗\n");
 	printf("║  " CYAN "0" RED " | IJK Solution                             ║\n");
 	printf("║  " CYAN "1" RED " | IKJ Solution                             ║\n");
-	printf("║  " CYAN "2" RED " | Blocked IKJ Solution                     ║\n");
+	printf("║  " CYAN "2" RED " | Blocked IIKKJJ-IKJ Solution              ║\n");
+	printf("║  " CYAN "3" RED " | Blocked IIJJKK-IKJ Solution              ║\n");
 	printf("╚═══════════════════════════════════════════════╝\n" RESET);
 	return;
 }
