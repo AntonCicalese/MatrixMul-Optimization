@@ -1,13 +1,4 @@
-import csv, os, subprocess
-
-DEFAULTS = {"fIdx": 1, "matSize": [1024], "threads": [1],
-    "blockSize": [64], "parallel": 0, "reps": 2}
-
-JOBS = [
-    {"fIdx": 0, "matSize": [128]},
-    {"fIdx": 1, "matSize": [128]},
-    {"fIdx": 1, "matSize": [128], "threads": [1, 2], "parallel": 1}
-]
+import csv, os, subprocess, sys, tomllib
 
 HEADER = ["functionIdx", "matSize", "threadsNum", "blockSize", "parallel", "time"]
 
@@ -34,17 +25,22 @@ def expand(job):
             for blockSize in job["blockSize"]:
                 runs.append({**job, **{"matSize":matSize,"threads":threads,"blockSize":blockSize}})
     return runs
+    
+def loadConfig(path):
+    with open(path, "rb") as f:
+        data = tomllib.load(f)
+    return data["defaults"], data["job"]
 
 def main():
-    path = "results/bench.csv"
     os.makedirs("results", exist_ok=True)
-    
-    with open(path, "w", newline="") as f:
+    csvPath = "results/"+os.path.splitext(os.path.basename(sys.argv[1]))[0]+".csv"
+    defaults, jobs = loadConfig(sys.argv[1])
+    with open(csvPath, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(HEADER)
     
-        for job in JOBS:
-            full = {**DEFAULTS, **job}
+        for job in jobs:
+            full = {**defaults, **job}
             runs = expand(full)
             for run in runs:
                 for rep in range(0, run["reps"]):

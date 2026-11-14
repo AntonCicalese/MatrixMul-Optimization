@@ -1,0 +1,22 @@
+# defaults used by every job that doesn't override them
+[defaults]
+fIdx = 1
+matSize = [1024]
+threads = [1]
+blockSize = [64]
+parallel = 0
+reps = 2
+
+[[job]]
+fIdx = 0
+matSize = [128]
+
+[[job]]
+fIdx = 1
+matSize = [128]
+
+[[job]]
+fIdx = 1
+matSize = [128]
+threads = [1, 2]
+parallel = 1
