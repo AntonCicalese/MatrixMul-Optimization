@@ -17,6 +17,7 @@
 #define DEFAULT_PARALLEL_FLAG 0
 #define DEFAULT_VERBOSE_FLAG 0
 #define DEFAULT_HELP_SELECTED_FLAG 0
+#define DEFAULT_CSV_MODE_SELECTED_FLAG 0
 
 typedef struct {
 	size_t matSize;
@@ -26,6 +27,7 @@ typedef struct {
 	int parallel;
 	int verbose;
 	int helpSelected;
+	int csvModeSelected;
 } Settings;
 
 void run(Settings cfg, double *matA, double *matB, double *matC);
@@ -63,6 +65,7 @@ int main(int argc, char **argv) {
 	cfg.parallel = DEFAULT_PARALLEL_FLAG;
 	cfg.verbose = DEFAULT_VERBOSE_FLAG;
 	cfg.helpSelected = DEFAULT_HELP_SELECTED_FLAG;
+	cfg.csvModeSelected = DEFAULT_CSV_MODE_SELECTED_FLAG;
 	
 	// Program arguments read
 	
@@ -82,6 +85,8 @@ int main(int argc, char **argv) {
 		} else if (strcmp(argv[i], "--help") == 0) {
 			cfg.helpSelected = 1;
 			printHelp();
+		} else if (strcmp(argv[i], "--csv") == 0) {
+			cfg.csvModeSelected = 1;
 		}
 	}
 	
@@ -163,7 +168,11 @@ void run(Settings cfg, double *matA, double *matB, double *matC) {
 		if (cfg.verbose) printf("Execution complete!\n" CYAN "Time taken: ");
 
 		if (cfg.verbose) printf("%lf seconds\n" RESET, elapsedTime);
-		else printf("%lf\n", elapsedTime);
+		else {
+			if (cfg.csvModeSelected)
+				printf("%d,%zu,%d,%zu,%d,", cfg.functionIdx, cfg.matSize, cfg.threadsNum, cfg.blockSize, cfg.parallel);	
+			printf("%lf\n", elapsedTime);
+		}
 	}
 	
 	free(matA);

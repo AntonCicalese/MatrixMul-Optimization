@@ -28,6 +28,9 @@
 *.so.*
 *.dylib
 
+# Results files
+results/
+
 # Executables
 *.exe
 *.out
