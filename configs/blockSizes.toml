@@ -5,15 +5,22 @@ matSize = [2048]
 threads = [1]
 blockSize = [8,16,32,48,64,96,128]
 parallel = 0
-reps = 2
+reps = 8
 
 [[job]]
 fIdx = 2
+reps = 5
+
+[[job]]
+fIdx = 2
+parallel = 1
+threads = [4]
 
 [[job]]
 fIdx = 3
+reps = 5
 
 [[job]]
 fIdx = 3
 parallel = 1
-threads = [8]
+threads = [4]

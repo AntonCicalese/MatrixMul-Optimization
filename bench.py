@@ -65,7 +65,7 @@ def main():
                     doneReps = rep + 1
                     totalReps = run["reps"]
                     filledBar = int(PROG_BAR_LENGTH * doneReps / totalReps)
-                    bar = "■" * filledBar + "□" * (PROG_BAR_LENGTH - filledBar)
+                    bar = "█" * filledBar + "░" * (PROG_BAR_LENGTH - filledBar)
                     print(f"\r|{bar}| [{doneReps}/{totalReps}]", end="")
                 print()
     print(RESET)
