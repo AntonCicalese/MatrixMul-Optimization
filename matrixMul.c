@@ -385,13 +385,13 @@ void printSettings(Settings cfg) {
 }
 
 void printHelp() {
-	printf(CYAN" __  __       _   __  __       _  ___        _\n");
+	printf(BOLD CYAN" __  __       _   __  __       _  ___        _\n");
 	printf("|  \\/  | __ _| |_|  \\/  |_   _| |/ _ \\ _ __ | |_\n");
 	printf("| |\\/| |/ _` | __| |\\/| | | | | | | | | '_ \\| __|\n");
 	printf("| |  | | (_| | |_| |  | | |_| | | |_| | |_) | |_\n");
 	printf("|_|  |_|\\__,_|\\__|_|  |_|\\__,_|_|\\___/| .__/ \\__|\n");
 	printf("                                      |_|\n");
-	printf(RED "╔═══════════════" CYAN BOLD" PROGRAM OPTIONS " RESET RED "═══════════════╗\n");
+	printf(RED "╔═══════════════" CYAN " PROGRAM OPTIONS " RED "═══════════════╗\n");
 	printf("║  " CYAN "-n [int]" RED " | Set Matrix Size                   ║\n");
 	printf("║  " CYAN "-f [int]" RED " | Select Function Index             ║\n");
 	printf("║  " CYAN "-t [int]" RED " | Set Thread Amount                 ║\n");
@@ -399,7 +399,7 @@ void printHelp() {
 	printf("║  " CYAN "-p      " RED " | Parallel Execution                ║\n");
 	printf("║  " CYAN "-v      " RED " | Verbose Execution                 ║\n");
 	printf("╚═══════════════════════════════════════════════╝\n");
-	printf("╔════════════" CYAN BOLD " AVAILABLE FUNCTIONS " RESET RED "══════════════╗\n");
+	printf("╔═════════════" CYAN " AVAILABLE FUNCTIONS " RED "═════════════╗\n");
 	printf("║  " CYAN "0" RED " | IJK Solution                             ║\n");
 	printf("║  " CYAN "1" RED " | IKJ Solution                             ║\n");
 	printf("║  " CYAN "2" RED " | Blocked IIKKJJ-IKJ Solution              ║\n");
