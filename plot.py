@@ -8,12 +8,14 @@ for i in range(1, len(sys.argv)):
 	fData = fData[(fData["functionIdx"] == 3) & (fData["parallel"] == 0)]
 	fData = fData.groupby(["blockSize"]).median()
 	dataFrames.append(fData)
-
+    
+plt.style.use("dark_background")
 for df in dataFrames:
 	print("---")
 	print(df["time"])
 	plt.plot(df["time"])
 
-plt.xticks((8, 64, 128, 256, 384, 512, 640, 768, 896, 1024))
+plt.style.use('dark_background')
+plt.xticks((8,16,32,48,64,96,128,192,256,320,384,448,512,576,640,768,896,1024))
 plt.show()
 

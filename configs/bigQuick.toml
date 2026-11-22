@@ -8,12 +8,12 @@ parallel = 0
 reps = 8
 
 [warmup]
-seconds = 10
-fIdx = 2
-matSize = [2024]
-blockSize = [256]
+seconds = 60
+fIdx = 3
+matSize = [1024]
+blockSize = [64]
 parallel = 1
-threads = [8]
+threads = [12]
 
 [[job]]
 fIdx = 2

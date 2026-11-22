@@ -1,4 +1,4 @@
-import csv, os, subprocess, sys, tomllib, time
+import csv, os, subprocess, sys, tomllib, time, random
 from datetime import datetime
 
 HEADER = ["functionIdx", "matSize", "threadsNum", "blockSize", "parallel", "time"]
@@ -40,10 +40,15 @@ def loadConfig(path):
         data = tomllib.load(f)
     return data["defaults"], data["warmup"], data["job"]
     
-def printBar(done, total):
+def printBar(done, total, start):
+    elapsed = time.monotonic() - start
+    if done == 0:
+        eta = 0
+    else:
+        eta = (elapsed / done) * (total - done)
     filledBar = int(PROG_BAR_LENGTH * done / total)
     bar = "█" * filledBar + "░" * (PROG_BAR_LENGTH - filledBar)
-    print(f"\r|{bar}| [{done}/{total}]", end="")
+    print(f"\r|{bar}| [{done}/{total}] ETA {int(eta/60)}m{int(eta%60)}s   ", end="")
     return
 
 def main():
@@ -60,27 +65,34 @@ def main():
         startTime = time.monotonic()
         warmup = {**defaults, **warmup}
         print(f"[{datetime.now():%H:%M:%S}] WARMUP {warmup['seconds']}s ")
-        printBar(0, warmup["seconds"])
+        printBar(0, warmup["seconds"], startTime)
         while time.monotonic() - startTime < warmup["seconds"]:
             runMatmulopt(warmup["fIdx"], warmup["matSize"], warmup["threads"], warmup["blockSize"], warmup["parallel"])
-            printBar(int(time.monotonic() - startTime), warmup["seconds"])
+            printBar(min(int(time.monotonic() - startTime),warmup["seconds"]), warmup["seconds"], startTime)
         print("")
         # Jobs
+        allRuns = []
         for job in jobs:
             full = {**defaults, **job}
             runs = expand(full)
             for run in runs:
-                print(f"[{datetime.now():%H:%M:%S}] {run["matSize"]}x{run["matSize"]} | F{run["fIdx"]} "
-                f"| {run["threads"]}T | {run["blockSize"]}B")
-                totalReps = run["reps"]
-                printBar(0, totalReps)
                 for rep in range(0, run["reps"]):
-                    output = runMatmulopt(run["fIdx"], run["matSize"], run["threads"], run["blockSize"], run["parallel"])
-                    writer.writerow(output)
-                    f.flush()
-                    # Job progress bar
-                    doneReps = rep + 1
-                    printBar(doneReps, totalReps)
-                print()
-    print(RESET)
+                    allRuns.append(run)
+        
+        totalRuns = len(allRuns)
+        doneRuns = 0
+        random.seed(42)
+        random.shuffle(allRuns)
+        print(f"[{datetime.now():%H:%M:%S}] RUNNING BENCHMARK...")
+        startTime = time.monotonic()
+        printBar(doneRuns, totalRuns, startTime)
+        for run in allRuns:     
+            output = runMatmulopt(run["fIdx"], run["matSize"], run["threads"], run["blockSize"], run["parallel"])
+            writer.writerow(output)
+            f.flush()
+            # Runs progress bar
+            doneRuns = doneRuns + 1
+            printBar(doneRuns, totalRuns, startTime)
+        print()
+    print(f"[{datetime.now():%H:%M:%S}] BENCHMARK COMPLETE" + RESET)
 main()

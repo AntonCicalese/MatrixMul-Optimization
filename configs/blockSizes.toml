@@ -1,34 +1,19 @@
 # defaults used by every job that doesn't override them
 [defaults]
 fIdx = 1
-matSize = [2048]
+matSize = [1024]
 threads = [1]
-blockSize = [8,16,32,48,64,96,128,256,384,512,640,768,896,1024]
+blockSize = [8,16,32,48,64,96,128,192,256,320,384,448,512,576,640,768,896,1024]
 parallel = 0
-reps = 8
+reps = 7
 
 [warmup]
-seconds = 10
-fIdx = 2
-matSize = [2024]
-blockSize = [256]
+seconds = 60
+fIdx = 3
+matSize = 4096
+blockSize = 256
 parallel = 1
-threads = [8]
-
-[[job]]
-fIdx = 2
-reps = 5
-
-[[job]]
-fIdx = 2
-parallel = 1
-threads = [4]
+threads = 12
 
 [[job]]
 fIdx = 3
-reps = 5
-
-[[job]]
-fIdx = 3
-parallel = 1
-threads = [4]

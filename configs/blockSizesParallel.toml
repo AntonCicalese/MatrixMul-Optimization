@@ -3,11 +3,19 @@
 fIdx = 1
 matSize = [2048]
 threads = [1]
-blockSize = [8,16,32,48,64,96,128,256,384,512,640,768,896,1024]
+blockSize = [8,16,32,48,64,96,128,192,256,320,384,448,512,576,640,768,896,1024]
 parallel = 1
 reps = 16
+
+[warmup]
+seconds = 60
+fIdx = 2
+matSize = [2048]
+blockSize = [256]
+parallel = 1
+threads = [8]
 
 [[job]]
 fIdx = 3
 parallel = 1
-threads = [8]
+threads = [16]
