@@ -1,4 +1,4 @@
-import csv, os, subprocess, sys, tomllib
+import csv, os, subprocess, sys, tomllib, time
 from datetime import datetime
 
 HEADER = ["functionIdx", "matSize", "threadsNum", "blockSize", "parallel", "time"]
@@ -38,7 +38,13 @@ def expand(job):
 def loadConfig(path):
     with open(path, "rb") as f:
         data = tomllib.load(f)
-    return data["defaults"], data["job"]
+    return data["defaults"], data["warmup"], data["job"]
+    
+def printBar(done, total):
+    filledBar = int(PROG_BAR_LENGTH * done / total)
+    bar = "█" * filledBar + "░" * (PROG_BAR_LENGTH - filledBar)
+    print(f"\r|{bar}| [{done}/{total}]", end="")
+    return
 
 def main():
     print(f"{BOLD + RED}╔" + "═" * 47 + "╗")
@@ -46,27 +52,35 @@ def main():
     print(f"{RED}╚" + "═" * 47 + "╝")
     os.makedirs("results", exist_ok=True)
     csvPath = "results/"+os.path.splitext(os.path.basename(sys.argv[1]))[0]+".csv"
-    defaults, jobs = loadConfig(sys.argv[1])
+    defaults, warmup, jobs = loadConfig(sys.argv[1])
     with open(csvPath, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(HEADER)
-    
+        # Warmup
+        startTime = time.monotonic()
+        warmup = {**defaults, **warmup}
+        print(f"[{datetime.now():%H:%M:%S}] WARMUP {warmup['seconds']}s ")
+        printBar(0, warmup["seconds"])
+        while time.monotonic() - startTime < warmup["seconds"]:
+            runMatmulopt(warmup["fIdx"], warmup["matSize"], warmup["threads"], warmup["blockSize"], warmup["parallel"])
+            printBar(int(time.monotonic() - startTime), warmup["seconds"])
+        print("")
+        # Jobs
         for job in jobs:
             full = {**defaults, **job}
             runs = expand(full)
             for run in runs:
                 print(f"[{datetime.now():%H:%M:%S}] {run["matSize"]}x{run["matSize"]} | F{run["fIdx"]} "
                 f"| {run["threads"]}T | {run["blockSize"]}B")
+                totalReps = run["reps"]
+                printBar(0, totalReps)
                 for rep in range(0, run["reps"]):
                     output = runMatmulopt(run["fIdx"], run["matSize"], run["threads"], run["blockSize"], run["parallel"])
                     writer.writerow(output)
                     f.flush()
                     # Job progress bar
                     doneReps = rep + 1
-                    totalReps = run["reps"]
-                    filledBar = int(PROG_BAR_LENGTH * doneReps / totalReps)
-                    bar = "█" * filledBar + "░" * (PROG_BAR_LENGTH - filledBar)
-                    print(f"\r|{bar}| [{doneReps}/{totalReps}]", end="")
+                    printBar(doneReps, totalReps)
                 print()
     print(RESET)
 main()
